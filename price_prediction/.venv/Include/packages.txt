@@ -1,0 +1,10 @@
+pip install flask
+pip install numpy
+pip install panda
+pip install sham
+pip install scikit-learn
+pip install sklearn
+pip install lightgbm
+pip install flask_cors
+pip install matplotlib
+pip install seaborn
