@@ -155,7 +155,7 @@ def populate_product_suppliers(conn, supplier_ids, product_ids):
             random.choice(supplier_ids),  # Random supplier_id
             round(random.uniform(10, 300), 2),  # Cost price
             fake.date_this_decade(),          # Supply date
-            fake.unique.word()[:50],          # Batch number
+            str(uuid.uuid4())[:30],          # Batch number
         )
         for _ in range(100)  # Create 100 product-supplier relationships
     ]
