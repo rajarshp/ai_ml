@@ -9,11 +9,11 @@ from datetime import timedelta
 fake = Faker()
 
 conn = psycopg2.connect(
-    dbname="retail_db",
-    user="postgres",
-    password="admin",
-    host="localhost",
-    port="5432"
+    dbname="postgres",
+    user="postgres.rcpmmygrfhobggbgqyux",
+    password="mnEUifnWjJ5BqXqk",
+    host="aws-0-us-west-1.pooler.supabase.com",
+    port="6543"
 )
 
 # Initialize Faker instance

@@ -2,9 +2,12 @@ from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, AutoModelForCausa
 from sqlalchemy import create_engine, inspect, text
 import json
 from colorama import Fore, Style, init
+from flask import Flask, request, jsonify
 
-# Initialize colorama
+app = Flask(__name__)
 init(autoreset=True)
+
+schema = ""
 
 # Initialize the Hugging Face model and tokenizer
 # model_name = "gaussalgo/T5-LM-Large-text2sql-spider"
@@ -18,9 +21,10 @@ model = AutoModelForCausalLM.from_pretrained(model_name)
 
 
 # Database Connection Configuration
-DATABASE_URI = "postgresql+psycopg2://postgres:admin@localhost/retail_db"
-engine = create_engine(DATABASE_URI)
-inspector = inspect(engine)
+#DATABASE_URI = "postgresql+psycopg2://postgres:admin@localhost/retail_db"
+DATABASE_URI=""
+engine = ""
+inspector = ""
 
 def get_schema_metadata(engine):
     
@@ -82,7 +86,7 @@ def generate_sql(prompt, schema):
 
     return output_text
 
-def execute_sql(query, engine):
+def execute_sql(query):
     try:
         with engine.connect() as connection:
             result = connection.execute(text(query))
@@ -185,31 +189,28 @@ def generate_ddl():
 # schema_json = create_schema_string(schema)
 # print(f"Schema STR: {schema_json}")    
 
-# Main Workflow
-if __name__ == "__main__":
-    while(True):
+@app.before_request
+def initialize_schema():
+    global schema, DATABASE_URI, engine, inspector
 
-        # Step 1: Get schema metadata dynamically
-        # schema_metadata, relationships = get_schema_metadata(engine)
+    DATABASE_URI="postgresql://postgres.rcpmmygrfhobggbgqyux:mnEUifnWjJ5BqXqk@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+    engine = create_engine(DATABASE_URI)
+    inspector = inspect(engine)
+    
+    schema = generate_ddl()
 
-        # # Step 2: Format schema metadata for model prompt
-        # formatted_schema = format_schema_for_prompt(schema_metadata, relationships)
-        # print("Database Schema:\n", formatted_schema)
+@app.route('/query', methods=['POST'])
+def text_to_sql():
+        
+    data = request.json
+    user_input = data.get('query', '')
 
-        # Step 3: Define user prompt
-        # user_prompt = (
-        #     "how many deniel are there Daniel? "
-        # )
+    try:
+        sql_query = generate_sql(user_input, schema)
+        results = execute_sql(sql_query)
+        return jsonify({"query": sql_query, "results": results}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        user_prompt = input("Enter your question (natural language): ").strip()
-        if user_prompt.lower() == "exit":
-            print("Exiting the program. Goodbye!")
-            break
-
-        # Step 4: Generate SQL query using the model
-        sql_query = generate_sql(user_prompt, generate_ddl())
-        print(Fore.RED + "Generated SQL Query:\n" + Fore.BLUE + sql_query)
-
-        # Step 5: Execute the SQL query on the database
-        results = execute_sql(sql_query, engine)
-        print(Fore.GREEN + "Query Results:\n" ,results)
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000, debug=True)

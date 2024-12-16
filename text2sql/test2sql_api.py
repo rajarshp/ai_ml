@@ -3,7 +3,7 @@ import json
 from colorama import Fore, Style, init
 from flask import Flask, request, jsonify
 from better_profanity import profanity
-from openai import AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 import psycopg2
 
 app = Flask(__name__)
@@ -13,10 +13,13 @@ profanity.load_censor_words()
 api_key = "" 
 api_base = ""
 api_version = "2023-05-15"
+opan_ai_model="gpt-4o-mini"
 
-client = AzureOpenAI(api_key=api_key,
-azure_endpoint=api_base,
-api_version=api_version)
+# client = AzureOpenAI(api_key=api_key,
+# azure_endpoint=api_base,
+# api_version=api_version)
+
+client = OpenAI(api_key=api_key)
 
 schema = ""
 
@@ -87,7 +90,7 @@ def generate_sql_query(user_input, schema):
     SQL Query:
     """
     response = client.completions.create(
-        model="gpt-4", 
+        model=opan_ai_model, 
         prompt=prompt
     )
     return response['choices'][0]['text'].strip()
