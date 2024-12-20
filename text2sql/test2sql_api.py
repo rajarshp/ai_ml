@@ -3,31 +3,26 @@ import json
 from colorama import Fore, Style, init
 from flask import Flask, request, jsonify
 from better_profanity import profanity
-from openai import AzureOpenAI, OpenAI
+import google.generativeai as genai
 import psycopg2
+import logging
+import re
 
 app = Flask(__name__)
 init(autoreset=True)
 profanity.load_censor_words()
 
 api_key = "" 
-api_base = ""
-api_version = "2023-05-15"
-opan_ai_model="gpt-4o-mini"
 
-# client = AzureOpenAI(api_key=api_key,
-# azure_endpoint=api_base,
-# api_version=api_version)
-
-client = OpenAI(api_key=api_key)
-
+client = genai.configure(api_key=api_key)
 schema = ""
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 # Database Connection Configuration
-DATABASE_URI = "postgresql+psycopg2://postgres:admin@localhost/retail_db"
-engine = create_engine(DATABASE_URI)
-inspector = inspect(engine)
+DATABASE_URI = ""
+engine = ""
+inspector = ""
 
 
 
@@ -83,19 +78,21 @@ def format_schema_for_prompt(schema_metadata, relationships):
 
 def generate_sql_query(user_input, schema):
 
+
+    model = genai.GenerativeModel("gemini-1.5-flash")
+
     prompt = f"""
     Convert the following request into an SQL query:
     Request: "{user_input}"
     SQL Schema: {schema}
     SQL Query:
     """
-    response = client.completions.create(
-        model=opan_ai_model, 
-        prompt=prompt
-    )
-    return response['choices'][0]['text'].strip()
+    response = model.generate_content(prompt)
+    response = response.text
+    logging.debug(f"RAW {response}")
+    return response
 
-def execute_sql(query, engine):
+def execute_sql(query):
     try:
         with engine.connect() as connection:
             result = connection.execute(text(query))
@@ -187,10 +184,25 @@ def generate_ddl():
         all_ddls += ddl +"\n\n"
     return all_ddls
 
+def extract_sql(text):
+    pattern = r"```sql\s*(.*?)\s*```"
+    matches = re.findall(pattern, text, re.DOTALL)
+    for i, match in enumerate(matches, start=1): 
+        query = match.strip()  
+    
+    return query
+
+
 @app.before_request
 def initialize_schema():
-    global schema
+    global schema, DATABASE_URI, engine, inspector
+
+    DATABASE_URI=""
+    engine = create_engine(DATABASE_URI)
+    inspector = inspect(engine)
+    
     schema = generate_ddl()
+    logging.debug(f"SCHEMA {schema}")
 
 @app.route('/query', methods=['POST'])
 def text_to_sql():
@@ -204,9 +216,16 @@ def text_to_sql():
         return jsonify({"error": message}), 400
 
     try:
-        sql_query = generate_sql_query(user_input, schema)
-        results = execute_sql(sql_query)
-        return jsonify({"query": sql_query, "results": results}), 200
+        sql_query = extract_sql(generate_sql_query(user_input, schema))
+        logging.debug(f"SQL {sql_query}")
+
+        if sql_query is not None:
+            results = execute_sql(sql_query)
+            if len(results) == 0:
+                results = "There is no data for this query"
+            return jsonify({"query": sql_query, "results": results}), 200
+        else:
+            raise Exception("Could not generate sql")
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

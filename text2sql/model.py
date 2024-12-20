@@ -193,7 +193,7 @@ def generate_ddl():
 def initialize_schema():
     global schema, DATABASE_URI, engine, inspector
 
-    DATABASE_URI="postgresql://postgres.rcpmmygrfhobggbgqyux:mnEUifnWjJ5BqXqk@aws-0-us-west-1.pooler.supabase.com:6543/postgres"
+    DATABASE_URI=""
     engine = create_engine(DATABASE_URI)
     inspector = inspect(engine)
     
